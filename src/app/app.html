@@ -1,0 +1,95 @@
+
+
+
+
+
+
+
+@if (currentUser) {
+<div class="h-screen flex overflow-hidden bg-slate-50 font-sans">
+
+  <!-- Sidebar -->
+  <app-sidebar
+    class="w-64 h-full flex-shrink-0"
+    [currentRoute]="currentRoute"
+    [currentUser]="currentUser"
+    [unreadCount]="unreadCount"
+    [isOpen]="sidebarOpen"
+    (navigate)="navigate($event)"
+    (logout)="handleLogout()"
+    (toggle)="toggleSidebar()"
+  >
+  </app-sidebar>
+
+  <!-- Zone droite -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Navbar -->
+    <app-navbar
+      class="h-16 border-b bg-white"
+      [currentRoute]="currentRoute"
+      [currentUser]="currentUser"
+      [unreadCount]="unreadCount"
+      (navigate)="navigate($event)"
+      (toggleSidebar)="toggleSidebar()"
+      (roleChange)="handleRoleChange($event)"
+    >
+    </app-navbar>
+
+    <main class="flex-1 overflow-y-auto">
+      @switch (currentRoute) {
+        @case ('competition') {
+          <app-competitions [currentUser]="currentUser" [showToast]="showToast.bind(this)"></app-competitions>
+        }
+        @case ('team') {
+          <app-teams [currentUser]="currentUser" [showToast]="showToast.bind(this)"></app-teams>
+        }
+        @case ('players') {
+          <app-players></app-players>
+        }
+        @case ('matches') {
+          <app-matches [currentUser]="currentUser" [showToast]="showToast.bind(this)"></app-matches>
+        }
+        @case ('rankings') {
+          <app-rankings></app-rankings>
+        }
+        @case ('notifications') {
+          <app-notification
+            [currentUser]="currentUser"
+            [showToast]="showToast.bind(this)"
+            [onRefreshNotificationsCount]="loadUnreadCount.bind(this)"
+          ></app-notification>
+        }
+        @case ('profile') {
+          <app-profile [showToast]="showToast.bind(this)"></app-profile>
+        }
+        @case ('auditlogs') {
+          <app-audit-logs [currentUser]="currentUser" [showToast]="showToast.bind(this)"></app-audit-logs>
+        }
+        @default {
+          <app-dashboard [onNavigate]="navigate.bind(this)" [showToast]="showToast.bind(this)"></app-dashboard>
+        }
+      }
+    </main>
+  </div>
+
+</div>
+} @else {
+
+  <!-- Page de login -->
+  <div >
+    <app-login
+      [showToast]="showToast.bind(this)"
+      (loginSuccess)="handleLoginSuccess($event)"
+    ></app-login>
+  </div>
+
+}
+
+@if (toastMessage) {
+  <app-toast
+    [message]="toastMessage"
+    [type]="toastType"
+    (close)="handleCloseToast()"
+  ></app-toast>
+}
