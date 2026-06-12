@@ -1,0 +1,260 @@
+<div class="p-6 max-w-7xl mx-auto space-y-6">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+    <div class="flex flex-wrap items-center gap-3">
+      <select [(ngModel)]="selectedCompFilter" class="p-2 border border-slate-200 rounded-xl bg-slate-50 text-xs font-semibold">
+        <option value="all">Toutes les compétitions</option>
+        <option *ngFor="let c of competitions" [value]="c.id">{{ c.name }}</option>
+      </select>
+
+      <select [(ngModel)]="selectedStatusFilter" class="p-2 border border-slate-200 rounded-xl bg-slate-50 text-xs font-semibold">
+        <option value="all">Tous les statuts</option>
+        <option value="Planifié">Planifiés</option>
+        <option value="En cours">En cours</option>
+        <option value="Terminé">Terminés</option>
+        <option value="Reporté">Reportés</option>
+      </select>
+    </div>
+
+    <button *ngIf="isSportManagementRole" (click)="handleOpenAutoGenerator()" class="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold">
+      Générer le calendrier
+    </button>
+  </div>
+
+  <div *ngIf="loading" class="flex justify-center p-20">
+    <lucide-angular [img]="Loader2" class="h-8 w-8 animate-spin text-sky-500"></lucide-angular>
+  </div>
+
+  <div *ngIf="!loading && filteredMatches.length > 0" class="space-y-4">
+    <div *ngFor="let m of filteredMatches" class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+      <div class="px-6 py-3 border-b text-xs bg-slate-50 flex justify-between">
+        <span class="font-bold text-sky-500">{{ m.competitionName }}</span>
+        <span>{{ m.status }}</span>
+      </div>
+
+      <div class="p-6 grid grid-cols-1 md:grid-cols-3 items-center gap-4">
+        <div class="flex items-center justify-end gap-3">
+          <span class="font-bold">{{ m.teamAName }}</span>
+          <div class="h-10 w-10 rounded-xl text-white flex items-center justify-center font-bold" [style.backgroundColor]="m.teamALogoColor">
+            {{ m.teamAName.substring(0, 2) }}
+          </div>
+        </div>
+
+        <div class="text-center">
+          <div *ngIf="m.status === 'Terminé' || m.status === 'En cours'" class="text-3xl font-bold">
+            {{ m.scoreA ?? 0 }} : {{ m.scoreB ?? 0 }}
+          </div>
+          <div *ngIf="m.status === 'Planifié'" class="text-xs text-slate-500">
+            {{ m.date }} à {{ m.time }}
+          </div>
+          <div *ngIf="m.status === 'Reporté'" class="text-xs text-amber-600">
+            Match reporté : {{ m.reportReason || 'motif non renseigné' }}
+          </div>
+          <div class="mt-2 text-[11px] text-slate-400">
+            {{ m.pitch }} • {{ m.referee }}
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl text-white flex items-center justify-center font-bold" [style.backgroundColor]="m.teamBLogoColor">
+            {{ m.teamBName.substring(0, 2) }}
+          </div>
+          <span class="font-bold">{{ m.teamBName }}</span>
+        </div>
+      </div>
+
+      <div *ngIf="expandedMatchId === m.id" class="px-6 pb-6 border-t">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+          <div>
+            <h4 class="font-bold text-xs mb-2">Buts</h4>
+            <div *ngFor="let g of m.goals" class="flex justify-between py-1 text-sm">
+              <span>{{ g.scorerName }}</span>
+              <span>⚽ {{ g.minute }}'</span>
+            </div>
+          </div>
+          <div>
+            <h4 class="font-bold text-xs mb-2">Cartons</h4>
+            <div *ngFor="let c of m.cards" class="flex justify-between py-1 text-sm">
+              <span>{{ c.playerName }}</span>
+              <span [class.text-red-500]="c.type === 'red'" [class.text-amber-500]="c.type === 'yellow'">{{ c.type === 'red' ? 'Rouge' : 'Jaune' }} {{ c.minute }}'</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-6 py-3 border-t flex justify-between">
+        <button *ngIf="m.goals.length > 0 || m.cards.length > 0" (click)="toggleEvents(m.id)" class="text-sky-500 text-xs font-bold">
+          Voir événements
+        </button>
+
+        <div *ngIf="isSportManagementRole" class="flex gap-2 ml-auto">
+          <button (click)="handleOpenScheduleModal(m)" class="px-3 py-2 border rounded-xl text-xs">Planifier</button>
+          <button (click)="handleOpenScoreModal(m)" class="px-3 py-2 bg-sky-500 text-white rounded-xl text-xs">Score / événement</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="!loading && filteredMatches.length === 0" class="text-center py-20 bg-white rounded-3xl border">
+    Aucun match trouvé.
+  </div>
+
+  <div *ngIf="isAutoGeneratorOpen" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 overflow-hidden">
+      <div class="h-14 flex items-center justify-between px-6 border-b border-slate-100 bg-slate-50">
+        <span class="font-bold text-slate-800 text-sm">Générer automatiquement le calendrier</span>
+        <button (click)="isAutoGeneratorOpen = false" class="p-1 rounded-md text-slate-400 hover:text-slate-600">
+          <lucide-angular [img]="X" class="h-5 w-5"></lucide-angular>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Compétition</label>
+            <select [(ngModel)]="genCompetitionId" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+              <option *ngFor="let c of competitions" [value]="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Date de début</label>
+            <input [(ngModel)]="genStartDate" type="date" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Équipes participantes</label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+            <label *ngFor="let team of teams" class="flex items-center gap-3 p-3 border border-slate-200 rounded-xl text-xs font-semibold cursor-pointer hover:bg-sky-50">
+              <input type="checkbox" [checked]="genSelectedTeamIds.includes(team.id)" (change)="handleAddTeamToGenList(team.id)" />
+              <span class="h-2.5 w-2.5 rounded-full" [style.backgroundColor]="team.logoColor"></span>
+              <span>{{ team.name }}</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" (click)="isAutoGeneratorOpen = false" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500">Annuler</button>
+          <button type="button" (click)="handleGenerateAutoCalendar()" class="px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold">Générer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="isScheduleModalOpen && selectedMatch" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden">
+      <div class="h-14 flex items-center justify-between px-6 border-b border-slate-100 bg-slate-50">
+        <span class="font-bold text-slate-800 text-sm">Planifier la rencontre</span>
+        <button (click)="isScheduleModalOpen = false" class="p-1 rounded-md text-slate-400 hover:text-slate-600">
+          <lucide-angular [img]="X" class="h-5 w-5"></lucide-angular>
+        </button>
+      </div>
+
+      <form (submit)="$event.preventDefault(); handleSaveSchedule()" class="p-6 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Date</label>
+            <input [(ngModel)]="matchDate" name="matchDate" type="date" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Heure</label>
+            <input [(ngModel)]="matchTime" name="matchTime" type="time" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Terrain</label>
+          <input [(ngModel)]="matchPitch" name="matchPitch" type="text" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Arbitre</label>
+          <input [(ngModel)]="matchReferee" name="matchReferee" type="text" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Statut</label>
+          <select [(ngModel)]="tempStatus" name="tempStatus" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+            <option value="Planifié">Planifié</option>
+            <option value="En cours">En cours</option>
+            <option value="Terminé">Terminé</option>
+            <option value="Reporté">Reporté</option>
+          </select>
+        </div>
+
+        <div *ngIf="tempStatus === 'Reporté'">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Motif du report</label>
+          <textarea [(ngModel)]="reportReason" name="reportReason" rows="3" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none resize-none"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" (click)="isScheduleModalOpen = false" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500">Annuler</button>
+          <button type="submit" class="px-4 py-2 bg-sky-500 text-white rounded-xl text-xs font-bold">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div *ngIf="isScoreModalOpen && selectedMatch" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-3xl w-full shadow-2xl border border-slate-100 overflow-hidden">
+      <div class="h-14 flex items-center justify-between px-6 border-b border-slate-100 bg-slate-50">
+        <span class="font-bold text-slate-800 text-sm">Score et événements</span>
+        <button (click)="isScoreModalOpen = false" class="p-1 rounded-md text-slate-400 hover:text-slate-600">
+          <lucide-angular [img]="X" class="h-5 w-5"></lucide-angular>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-5">
+        <div class="grid grid-cols-3 items-end gap-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{{ selectedMatch.teamAName }}</label>
+            <input [(ngModel)]="scoreA" type="number" min="0" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Statut</label>
+            <select [(ngModel)]="matchStatus" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+              <option value="Planifié">Planifié</option>
+              <option value="En cours">En cours</option>
+              <option value="Terminé">Terminé</option>
+              <option value="Reporté">Reporté</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">{{ selectedMatch.teamBName }}</label>
+            <input [(ngModel)]="scoreB" type="number" min="0" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="border border-slate-200 rounded-2xl p-4 space-y-3">
+            <h4 class="font-bold text-xs text-slate-700 uppercase">Ajouter un but</h4>
+            <select [ngModel]="selectedScorerId" (ngModelChange)="handleScorerChange($event)" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+              <option *ngFor="let p of activeScorersList" [value]="p.id">{{ p.firstName }} {{ p.lastName }}</option>
+            </select>
+            <input [(ngModel)]="goalMinute" type="number" min="1" max="130" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" />
+            <button type="button" (click)="handleAddGoalDirectly()" class="w-full px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold">Ajouter le but</button>
+          </div>
+
+          <div class="border border-slate-200 rounded-2xl p-4 space-y-3">
+            <h4 class="font-bold text-xs text-slate-700 uppercase">Ajouter un carton</h4>
+            <select [ngModel]="selectedCardPlayerId" (ngModelChange)="handleCardPlayerChange($event)" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+              <option *ngFor="let p of activeScorersList" [value]="p.id">{{ p.firstName }} {{ p.lastName }}</option>
+            </select>
+            <div class="grid grid-cols-2 gap-2">
+              <select [(ngModel)]="cardType" class="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+                <option value="yellow">Jaune</option>
+                <option value="red">Rouge</option>
+              </select>
+              <input [(ngModel)]="cardMinute" type="number" min="1" max="130" class="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" />
+            </div>
+            <button type="button" (click)="handleAddCardDirectly()" class="w-full px-4 py-2 bg-amber-500 text-white rounded-xl text-xs font-bold">Ajouter le carton</button>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" (click)="isScoreModalOpen = false" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500">Annuler</button>
+          <button type="button" (click)="handleSaveScore()" class="px-4 py-2 bg-sky-500 text-white rounded-xl text-xs font-bold">Valider le résultat</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
